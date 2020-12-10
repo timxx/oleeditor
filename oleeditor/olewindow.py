@@ -56,6 +56,12 @@ class OleWindow(QMainWindow):
             self._mdiArea.setActiveSubWindow(subWin)
             return
 
+        if not OleDocument.isOleFile(filePath):
+            QMessageBox.critical(self,
+                                self.windowTitle(),
+                                self.tr("'{}' is not an OLE2 structed storage file!").format(filePath))
+            return
+
         doc = OleDocument()
         if not doc.open(filePath):
             QMessageBox.critical(self,
