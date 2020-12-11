@@ -44,6 +44,11 @@ class OleView(QWidget):
 
         self._oleTree.expandAll()
 
+        self._oleTree.itemActivated.connect(
+            self._onOleEntryChanged)
+        self._oleTree.itemClicked.connect(
+            self._onOleEntryChanged)
+
     def getFilePath(self):
         return self._doc.path
 
@@ -72,7 +77,7 @@ class OleView(QWidget):
 
                 if (i + 1) == len(entry):
                     item.setIcon(0, self._fileIcon)
-                    item.setData(0, OleView.OleTypeRole, OleView.OleFolderType)
+                    item.setData(0, OleView.OleTypeRole, OleView.OleFileType)
                     parentItem.addChild(item)
                     break
 
@@ -93,10 +98,23 @@ class OleView(QWidget):
                     parentItem.addChild(item)
                     parentItem = item
 
-    def _makeFullPath(self, path, parent):
+    def _makeFullPath(self, path, parent, root=None):
         full_path = path
-        while parent != None:
+        while parent != None and parent != root:
             full_path = parent.text(0) + "/" + full_path
             parent = parent.parent()
 
         return full_path
+
+    def _onOleEntryChanged(self, item, column):
+        if column != 0:
+            return
+        if item.data(0, OleView.OleTypeRole) != OleView.OleFileType:
+            return
+
+        path = self._makeFullPath(
+            item.text(0),
+            item.parent(), self._oleTree.topLevelItem(0))
+
+        data = self._doc.getStreamData(path)
+        self._hexEdit.setData(data)
