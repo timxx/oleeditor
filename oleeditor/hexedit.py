@@ -12,6 +12,13 @@ from PySide2.QtCore import(
     QPointF,
     Qt)
 
+import PySide2
+
+
+QT_VERSION = (PySide2.__version_info__[0] << 16) + \
+    (PySide2.__version_info__[1] << 8) + \
+    (PySide2.__version_info__[2])
+
 
 class HexEdit(QAbstractScrollArea):
 
@@ -23,7 +30,10 @@ class HexEdit(QAbstractScrollArea):
         fm = QFontMetrics(self._font)
         self._lineHeight = fm.height()
 
-        self._charWidth = fm.horizontalAdvance('0')
+        if QT_VERSION >= 0x050B00:
+            self._charWidth = fm.horizontalAdvance('0')
+        else:
+            self._charWidth = fm.width('0')
         self._charSpace = self._charWidth // 2
 
         self._addrWidth = 0
@@ -133,7 +143,8 @@ class HexEdit(QAbstractScrollArea):
 
         oldPen = painter.pen()
         painter.setPen(QPen(Qt.gray))
-        painter.drawLine(self._addrWidth, 0, self._addrWidth, viewportRect.height())
+        painter.drawLine(self._addrWidth, 0, self._addrWidth,
+                         viewportRect.height())
         xAscii = self._asciiPosX + offset.x()
         xAsciiLine = xAscii - self._charSpace
         painter.drawLine(xAsciiLine, 0, xAsciiLine, viewportRect.height())
@@ -152,7 +163,8 @@ class HexEdit(QAbstractScrollArea):
                 xAscii = self._asciiPosX + offset.x()
 
                 # draw the address
-                addr = format(lineNum * self._bytesPerLine, "0%sX" % self._addrDigit) + "h"
+                addr = format(lineNum * self._bytesPerLine,
+                              "0%sX" % self._addrDigit) + "h"
                 painter.setPen(Qt.gray)
                 painter.drawText(self._charSpace, y, addr)
                 painter.setPen(oldPen)
@@ -164,7 +176,8 @@ class HexEdit(QAbstractScrollArea):
             ch = self._data[i]
             # draw the hex
             oldClip = painter.clipRegion()
-            painter.setClipRect(self._addrWidth, y - self._lineHeight, viewportRect.width(), self._lineHeight)
+            painter.setClipRect(
+                self._addrWidth, y - self._lineHeight, viewportRect.width(), self._lineHeight)
             strHex = format(ch, "02X")
             painter.drawText(x, y, strHex)
             x += self._charWidth * 2 + self._charSpace
