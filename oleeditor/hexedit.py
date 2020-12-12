@@ -105,6 +105,9 @@ class TextCursor():
     def inAsciiView(self):
         return self._inAsciiView
 
+    def inHexView(self):
+        return not self._inAsciiView
+
 
 class HexEdit(QAbstractScrollArea):
 
@@ -112,6 +115,7 @@ class HexEdit(QAbstractScrollArea):
         super().__init__(parent)
         self._data = None
         self._bytesPerLine = 16
+        self._charsPerLine = self._bytesPerLine * 2 + (self._bytesPerLine - 1)
         self._font = self._defaultFont()
         fm = QFontMetrics(self._font)
         self._lineHeight = fm.height()
@@ -306,31 +310,25 @@ class HexEdit(QAbstractScrollArea):
         brush = QColor(173, 214, 255)
         beginCol = self._cursor.beginPos()
         endCol = self._cursor.endPos()
-        inAsciiView = self._cursor.inAsciiView()
 
         def _calcX(col, forHex):
-            if inAsciiView:
-                if forHex:
-                    return col * self._charWidth * 3
+            if forHex:
                 return col * self._charWidth
-            else:
-                # TODO
-                pass
+            return (col + 1) // 3 * self._charWidth
 
         def _calcWidth(col, forHex):
-            if inAsciiView:
-                if forHex:
-                    return col * self._charWidth * 3 - self._charWidth
+            if forHex:
                 return col * self._charWidth
-            else:
-                # TODO
-                pass
+            return (col + 1) // 3 * self._charWidth
 
+        oldClip = painter.clipRegion()
+        rc = self.viewport().rect()
+        painter.setClipRect(self._hexPosX, 0, rc.width(), rc.height())
         if self._cursor.hasMultiLines():
             def _doDraw(xOffset, forHex):
                 # first line
                 x = xOffset + _calcX(beginCol, forHex)
-                w = _calcWidth(self._bytesPerLine - beginCol, forHex)
+                w = _calcWidth(self._charsPerLine - beginCol, forHex)
                 y = (beginRow - self.firstVisibleLine()) * self._lineHeight
                 h = self._lineHeight
                 painter.fillRect(x, y, w, h, brush)
@@ -339,7 +337,7 @@ class HexEdit(QAbstractScrollArea):
                 if (endRow - 1) > beginRow:
                     x = xOffset
                     y += self._lineHeight
-                    w = _calcWidth(self._bytesPerLine, forHex)
+                    w = _calcWidth(self._charsPerLine, forHex)
                     h = (endRow - 1 - beginRow) * self._lineHeight
                     painter.fillRect(x, y, w, h, brush)
 
@@ -365,6 +363,8 @@ class HexEdit(QAbstractScrollArea):
             _doDraw(self._hexPosX + xOffset, True)
             _doDraw(self._asciiPosX + xOffset, False)
 
+        painter.setClipRegion(oldClip)
+
     def rowColForPos(self, pos):
         y = max(0, pos.y())
         r = int(y / self._lineHeight)
@@ -374,20 +374,18 @@ class HexEdit(QAbstractScrollArea):
         if r >= rows:
             r = rows - 1
 
-        if pos.x() < self._hexPosX:
-            c = 0
-        if pos.x() > self._asciiPosX:
+        if self._cursor.inAsciiView():
             c = (pos.x() - self._asciiPosX) // self._charWidth
+            # same as hex view
+            c = 3 * c - 1
         else:
-            c = (pos.x() - self._hexPosX -
-                 self._charWidth // 2) // self._charWidth
-            c = (c // 3) * 2 + c % 3
+            c = (pos.x() - self._hexPosX) // self._charWidth
 
         if r == rows - 1:
             rest = len(self._data) % self._bytesPerLine
             if rest != 0:
-                c = min(c, rest)
-        c = min(c, self._bytesPerLine)
+                c = min(c, rest * 3)
+        c = max(0, min(c, self._charsPerLine))
 
         return r, c
 
@@ -438,11 +436,31 @@ class HexEdit(QAbstractScrollArea):
         r, c = self.rowColForPos(pos)
         self._cursor.selectTo(r, c)
 
+        if self._cursor.inHexView() and self._cursor.hasSelection():
+            beginCol = self._cursor.beginPos()
+            endCol = self._cursor.endPos()
+            # select one byte at least
+            if beginCol % 3 == 1:
+                beginCol -= 1
+            if endCol % 3 == 1:
+                endCol += 1
+            # do not select the space
+            if beginCol % 3 == 2:
+                beginCol += 1
+            if endCol % 3 == 0:
+                endCol -= 1
+            if r == self._cursor.endLine():
+                self._cursor.moveTo(self._cursor.beginLine(), beginCol)
+                self._cursor.selectTo(r, endCol)
+            else:
+                self._cursor.moveTo(self._cursor.endLine(), endCol)
+                self._cursor.selectTo(r, beginCol)
+
         if self._cursor.hasMultiLines():
             # select at least one char
             if c == 0 and self._cursor.endLine() == r:
                 self._cursor.selectTo(r, c + 1)
-            elif c == self._bytesPerLine and self._cursor.beginLine() == r:
+            elif c == self._charsPerLine and self._cursor.beginLine() == r:
                 self._cursor.selectTo(r, c - 1)
 
         self._invalidateSelection()
