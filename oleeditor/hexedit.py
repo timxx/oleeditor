@@ -272,8 +272,8 @@ class HexEdit(QAbstractScrollArea):
             ch = self._data[i]
             # draw the hex
             oldClip = painter.clipRegion()
-            painter.setClipRect(
-                self._addrWidth, y - self._lineHeight, viewportRect.width(), self._lineHeight)
+            painter.setClipRect(self._hexPosX, y - self._lineHeight,
+                                viewportRect.width(), self._lineHeight)
             strHex = format(ch, "02X")
             painter.drawText(x, y, strHex)
             x += self._charWidth * 3
