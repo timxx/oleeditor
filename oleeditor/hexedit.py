@@ -485,6 +485,9 @@ class HexEdit(QAbstractScrollArea):
         pos = self.mapToContents(event.pos())
         inAsciiView = pos.x() >= self._asciiPosX
         r, c = self.rowColForPos(pos, inAsciiView)
+        # not allow edit on hex end
+        if not inAsciiView and c % 3 == 2:
+            c -= 2
         self._cursor.moveTo(r, c)
         if pos.x() >= self._asciiPosX:
             self._cursor.moveToAsciiView()
@@ -514,12 +517,12 @@ class HexEdit(QAbstractScrollArea):
             # select one byte at least
             if beginCol % 3 == 1:
                 beginCol -= 1
-            if endCol % 3 == 1:
+            if endCol % 3 == 1 and (endCol + 1) <= self._charsPerLine:
                 endCol += 1
             # do not select the space
-            if beginCol % 3 == 2:
+            if beginCol % 3 == 2 and (beginCol + 1) <= self._charsPerLine:
                 beginCol += 1
-            if endCol % 3 == 0:
+            if endCol % 3 == 0 and endCol > 0:
                 endCol -= 1
             if r == self._cursor.endLine():
                 self._cursor.moveTo(self._cursor.beginLine(), beginCol)
@@ -531,9 +534,9 @@ class HexEdit(QAbstractScrollArea):
         if self._cursor.hasMultiLines():
             # select at least one char
             if c == 0 and self._cursor.endLine() == r:
-                self._cursor.selectTo(r, c + 1)
+                self._cursor.selectTo(r, c + 2)
             elif c == self._charsPerLine and self._cursor.beginLine() == r:
-                self._cursor.selectTo(r, c - 1)
+                self._cursor.selectTo(r, c - 2)
 
         self._invalidateSelection()
         self.selectionChanged.emit()
