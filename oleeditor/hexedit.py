@@ -15,7 +15,8 @@ from PySide2.QtCore import(
     QPoint,
     Qt,
     QRect,
-    QTimer)
+    QTimer,
+    Signal)
 
 import PySide2
 
@@ -114,6 +115,8 @@ class TextCursor():
 
 
 class HexEdit(QAbstractScrollArea):
+
+    selectionChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -435,7 +438,7 @@ class HexEdit(QAbstractScrollArea):
         if r >= rows:
             r = rows - 1
 
-        halfChar = self._charWidth / 2
+        halfChar = self._charWidth // 2
         if inAsciiView:
             c = (pos.x() + halfChar - self._asciiPosX) // self._charWidth
             # same as hex view
@@ -491,6 +494,8 @@ class HexEdit(QAbstractScrollArea):
         self._cursorTimer.start()
         self._invalidateSelection()
 
+        self.selectionChanged.emit()
+
     def mouseMoveEvent(self, event):
         if not self._data:
             return
@@ -531,6 +536,7 @@ class HexEdit(QAbstractScrollArea):
                 self._cursor.selectTo(r, c - 1)
 
         self._invalidateSelection()
+        self.selectionChanged.emit()
 
     def blinkCursor(self):
         rc = self._cursorRect()
@@ -545,3 +551,45 @@ class HexEdit(QAbstractScrollArea):
 
     def focusOutEvent(self, event):
         self._cursorTimer.stop()
+
+    def copy(self):
+        if self._cursor.inHexView():
+            self.copyAsHex()
+        else:
+            self.copyAsText()
+
+    def copyAsHex(self):
+        self._doCopy(True)
+
+    def copyAsText(self):
+        self._doCopy(False)
+
+    def _doCopy(self, asHex):
+        if not self._data or not self._cursor.hasSelection():
+            return
+
+        begin = (self._cursor.beginPos() + 1) // 3
+        end = (self._cursor.endPos() + 1) // 3
+        begin += self._cursor.beginLine() * self._bytesPerLine
+        end += self._cursor.endLine() * self._bytesPerLine
+        data = self._data[begin: end]
+
+        clipboard = QApplication.clipboard()
+        text = ""
+        if asHex:
+            for i in range(len(data)):
+                if (i + 1) != len(data):
+                    text += format(data[i], "02X") + " "
+                else:
+                    text += format(data[i], "02X")
+        else:
+            # TODO: detect encoding?
+            for ch in data:
+                if ch < 0x20 or ch > 0x126:
+                    text += "."
+                else:
+                    text += chr(ch)
+        clipboard.setText(text)
+
+    def hasSelection(self):
+        return self._cursor.hasSelection()

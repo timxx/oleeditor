@@ -6,12 +6,14 @@ from PySide2.QtWidgets import (
     QSplitter,
     QTreeWidget,
     QTreeWidgetItem,
-    QFileIconProvider)
+    QFileIconProvider,
+    QApplication)
 from PySide2.QtCore import (
     QFileInfo,
     Qt)
 
 from .hexedit import HexEdit
+from .oleevents import SelectionChangedEvent
 
 
 class OleView(QWidget):
@@ -48,6 +50,9 @@ class OleView(QWidget):
             self._onOleEntryChanged)
         self._oleTree.itemClicked.connect(
             self._onOleEntryChanged)
+
+        self._hexEdit.selectionChanged.connect(
+            self._onHexEditSelectionChanged)
 
     def getFilePath(self):
         return self._doc.path
@@ -100,7 +105,7 @@ class OleView(QWidget):
 
     def _makeFullPath(self, path, parent, root=None):
         full_path = path
-        while parent != None and parent != root:
+        while parent is not None and parent != root:
             full_path = parent.text(0) + "/" + full_path
             parent = parent.parent()
 
@@ -118,3 +123,11 @@ class OleView(QWidget):
 
         data = self._doc.getStreamData(path)
         self._hexEdit.setData(data)
+
+    def _onHexEditSelectionChanged(self):
+        event = SelectionChangedEvent(self)
+        QApplication.postEvent(self.window(), event)
+
+    @property
+    def editor(self):
+        return self._hexEdit
