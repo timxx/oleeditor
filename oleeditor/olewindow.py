@@ -6,7 +6,8 @@ from PySide2.QtWidgets import (
     QMdiArea,
     QTabBar,
     QFileDialog,
-    QMessageBox)
+    QMessageBox,
+    QApplication)
 from PySide2.QtGui import (
     QKeySequence,
     QIcon)
@@ -17,6 +18,7 @@ from .oleview import OleView
 from .oledocument import OleDocument
 from .stylehelper import dpiScaled
 from .oleevents import SelectionChangedEvent
+from .aboutdialog import AboutDialog
 
 
 class OleWindow(QMainWindow):
@@ -61,6 +63,13 @@ class OleWindow(QMainWindow):
         self._acCopy = ac
         self._acCopy.setEnabled(False)
 
+        helpMenu = self.menuBar().addMenu(self.tr("&Help"))
+        ac = helpMenu.addAction(self.tr("&About"),
+                                self.onHelpMenuAbout)
+        ac.setIcon(QIcon.fromTheme("help-about"))
+        helpMenu.addAction(self.tr("About &Qt"),
+                           QApplication.aboutQt)
+
     def onFileMenuOpen(self):
         files, _ = QFileDialog.getOpenFileNames(
             self,
@@ -75,6 +84,10 @@ class OleWindow(QMainWindow):
     def onEditMenuCopy(self):
         curSubWnd = self._mdiArea.activeSubWindow()
         curSubWnd.widget().editor.copy()
+
+    def onHelpMenuAbout(self):
+        aboutDialog = AboutDialog(self)
+        aboutDialog.exec()
 
     def _onSubWindowActivated(self, subWin):
         enabled = subWin.widget().editor.hasSelection() if subWin else False

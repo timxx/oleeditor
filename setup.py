@@ -1,3 +1,6 @@
 from setuptools import setup
+from oleeditor.version import VERSION
 
-setup()
+setup(
+    version=VERSION + "a2"
+    )
