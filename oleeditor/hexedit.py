@@ -28,6 +28,10 @@ QT_VERSION = (PySide2.__version_info__[0] << 16) + \
     (PySide2.__version_info__[2])
 
 
+def _isInvisibleChar(char):
+    return char >= 0x00 and char <= 0x1F
+
+
 class TextCursor():
 
     def __init__(self):
@@ -308,7 +312,7 @@ class HexEdit(QAbstractScrollArea):
             painter.setClipRegion(oldClip)
 
             # draw the ascii
-            if ch < 0x20 or ch > 0x126:
+            if _isInvisibleChar(ch):
                 strAscii = "."
             else:
                 strAscii = chr(ch)
@@ -588,7 +592,7 @@ class HexEdit(QAbstractScrollArea):
         else:
             # TODO: detect encoding?
             for ch in data:
-                if ch < 0x20 or ch > 0x126:
+                if _isInvisibleChar(ch):
                     text += "."
                 else:
                     text += chr(ch)
