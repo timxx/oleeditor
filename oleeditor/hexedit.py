@@ -150,6 +150,8 @@ class HexEdit(QAbstractScrollArea):
         self._cursorTimer.setInterval(500)
         self._cursorTimer.timeout.connect(self.blinkCursor)
 
+        self.viewport().setCursor(Qt.IBeamCursor)
+
     def setData(self, data):
         self._data = data
 
@@ -283,9 +285,6 @@ class HexEdit(QAbstractScrollArea):
         lineNum = startLine
 
         self._drawAddress(painter, spaceWidth, y, lineNum)
-        activeLine = -1
-        if self._cursor.isValid() and not self._cursor.hasSelection():
-            activeLine = self._cursor.beginLine()
 
         for i in range(start, end):
             if i != start and i % self._bytesPerLine == 0:
@@ -301,8 +300,6 @@ class HexEdit(QAbstractScrollArea):
             ch = self._data[i]
             # draw the hex
             oldClip = painter.clipRegion()
-            if activeLine == lineNum:
-                painter.setPen(Qt.red)
 
             painter.setClipRect(self._hexPosX, y - self._lineHeight,
                                 viewportRect.width(), self._lineHeight)
@@ -319,9 +316,6 @@ class HexEdit(QAbstractScrollArea):
             painter.drawText(xAscii, y, strAscii)
             xAscii += self._charWidth
 
-            if activeLine == lineNum:
-                painter.setPen(oldPen)
-
         self._drawCursor(painter, startLine, endLine)
 
     def _drawAddress(self, painter, x, y, lineNum):
@@ -333,7 +327,8 @@ class HexEdit(QAbstractScrollArea):
         painter.setPen(oldPen)
 
     def _drawSelection(self, painter, startLine, endLine):
-        if not self._cursor.hasSelection():
+        if not self._cursor.hasSelection() and \
+                not self._cursor.isValid():
             return
 
         beginRow = self._cursor.beginLine()
@@ -395,6 +390,11 @@ class HexEdit(QAbstractScrollArea):
                 w = _calcWidth(endCol - beginCol, forHex)
                 h = self._lineHeight
                 painter.fillRect(x, y, w, h, brush)
+
+            if not self._cursor.hasSelection():
+                brush = Qt.lightGray
+                beginCol = 0
+                endCol = self._charsPerLine
 
             xOffset = self.contentOffset().x()
             _doDraw(self._hexPosX + xOffset, True)
