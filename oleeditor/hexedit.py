@@ -251,19 +251,19 @@ class HexEdit(QAbstractScrollArea):
         painter.setFont(self._font)
 
         offset = self.contentOffset()
+        eventRect = event.rect()
 
-        startLine = self.firstVisibleLine()
-        endLine = startLine + self.linesPerPage() + 1
+        if eventRect.isValid():
+            startLine = self.rowForPos(eventRect.topLeft())
+            endLine = self.rowForPos(eventRect.bottomRight()) + 1
+        else:
+            startLine = self.firstVisibleLine()
+            endLine = startLine + self.linesPerPage() + 1
         endLine = min(self.lineCount(), endLine)
 
         viewportRect = self.viewport().rect()
-        eventRect = event.rect()
 
         painter.setClipRect(eventRect)
-
-        if eventRect == self._cursorRect():
-            self._drawCursor(painter, startLine, endLine)
-            return
 
         oldPen = painter.pen()
         painter.setPen(QPen(Qt.gray))
@@ -279,12 +279,19 @@ class HexEdit(QAbstractScrollArea):
         self._drawSelection(painter, startLine, endLine)
 
         x = offset.x() + self._hexPosX
-        y = self._ascent
+        y = self._ascent + \
+            (startLine - self.firstVisibleLine()) * self._lineHeight
         start = startLine * self._bytesPerLine
         end = min(endLine * self._bytesPerLine, len(self._data))
         lineNum = startLine
 
         self._drawAddress(painter, spaceWidth, y, lineNum)
+
+        cursorHighlight = self._cursor.isValid() and \
+            not self._cursor.hasSelection()
+        if cursorHighlight:
+            cursorCharPos = self._cursor.beginLine() * self._bytesPerLine + \
+                (self._cursor.beginPos() + 1) // 3
 
         for i in range(start, end):
             if i != start and i % self._bytesPerLine == 0:
@@ -301,8 +308,19 @@ class HexEdit(QAbstractScrollArea):
             # draw the hex
             oldClip = painter.clipRegion()
 
-            painter.setClipRect(self._hexPosX, y - self._lineHeight,
+            painter.setClipRect(self._hexPosX, y - self._ascent,
                                 viewportRect.width(), self._lineHeight)
+
+            if cursorHighlight and i == cursorCharPos:
+                if self._cursor.inAsciiView():
+                    xHighlight = x
+                    wHighlight = self._charWidth * 2
+                else:
+                    xHighlight = xAscii
+                    wHighlight = self._charWidth
+                painter.fillRect(xHighlight, y - self._ascent,
+                                 wHighlight, self._lineHeight, Qt.darkGray)
+
             strHex = format(ch, "02X")
             painter.drawText(x, y, strHex)
             x += self._charWidth * 3
@@ -434,13 +452,7 @@ class HexEdit(QAbstractScrollArea):
         return QRect(x, y, dpiScaled(1), self._lineHeight)
 
     def rowColForPos(self, pos, inAsciiView):
-        y = max(0, pos.y())
-        r = int(y / self._lineHeight)
-        r += self.firstVisibleLine()
-
-        rows = self.lineCount()
-        if r >= rows:
-            r = rows - 1
+        r = self.rowForPos(pos)
 
         halfChar = self._charWidth // 2
         if inAsciiView:
@@ -450,13 +462,24 @@ class HexEdit(QAbstractScrollArea):
         else:
             c = (pos.x() + halfChar - self._hexPosX) // self._charWidth
 
-        if r == rows - 1:
+        if r == self.lineCount() - 1:
             rest = len(self._data) % self._bytesPerLine
             if rest != 0:
                 c = min(c, rest * 3)
         c = max(0, min(c, self._charsPerLine))
 
         return r, c
+
+    def rowForPos(self, pos):
+        y = max(0, pos.y())
+        r = int(y / self._lineHeight)
+        r += self.firstVisibleLine()
+
+        rows = self.lineCount()
+        if r >= rows:
+            r = rows - 1
+
+        return r
 
     def _invalidateSelection(self):
         if not self._cursor.hasSelection() and \
