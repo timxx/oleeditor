@@ -34,8 +34,9 @@ def _isInvisibleChar(char):
 
 class TextCursor():
 
-    def __init__(self):
+    def __init__(self, maxColumn):
         self.clear()
+        self._maxColumn = maxColumn
 
     def clear(self):
         self._beginLine = -1
@@ -95,27 +96,61 @@ class TextCursor():
         else:
             return self._beginPos
 
-    def moveTo(self, line, pos):
+    def moveTo(self, line, pos, asciiView=False):
+        # not allow edit on hex end
+        if not asciiView and pos % 3 == 2:
+            pos -= 2
+
         self._beginLine = line
         self._beginPos = pos
         self._endLine = line
         self._endPos = pos
 
+        self._inAsciiView = asciiView
+
     def selectTo(self, line, pos):
         self._endLine = line
         self._endPos = pos
-
-    def moveToAsciiView(self):
-        self._inAsciiView = True
-
-    def moveToHexView(self):
-        self._inAsciiView = False
+        self._fixSelection(line, pos)
 
     def inAsciiView(self):
         return self._inAsciiView
 
     def inHexView(self):
         return not self._inAsciiView
+
+    def _fixSelection(self, r, c):
+        if not self.hasSelection():
+            return
+
+        beginCol = self._beginPos
+        endCol = self._endPos
+        isRevert = self.beginLine() == r and self.beginPos() == c
+        if isRevert:
+            # select one byte at least
+            if beginCol % 3 == 1 and (beginCol + 1) <= self._maxColumn:
+                beginCol += 1
+            if endCol % 3 == 1:
+                endCol -= 1
+            # do not select the space
+            if beginCol % 3 == 0 and beginCol > 0:
+                beginCol -= 1
+            if endCol % 3 == 2 and (endCol + 1) <= self._maxColumn:
+                endCol += 1
+        else:
+            # select one byte at least
+            if beginCol % 3 == 1:
+                beginCol -= 1
+            if endCol % 3 == 1 and (endCol + 1) <= self._maxColumn:
+                endCol += 1
+            # do not select the space
+            if beginCol % 3 == 2 and (beginCol + 1) <= self._maxColumn:
+                beginCol += 1
+            if endCol % 3 == 0 and endCol > 0:
+                endCol -= 1
+
+        self._beginPos = beginCol
+        self._endPos = endCol
 
 
 class HexEdit(QAbstractScrollArea):
@@ -143,7 +178,7 @@ class HexEdit(QAbstractScrollArea):
         self._addrDigit = 4
         self._maxWidth = 0
 
-        self._cursor = TextCursor()
+        self._cursor = TextCursor(self._charsPerLine)
         self._blink = False
         self._cursorTimer = QTimer(self)
         # qApp.cursorFlashTime() is too slow..
@@ -514,14 +549,7 @@ class HexEdit(QAbstractScrollArea):
         pos = self.mapToContents(event.pos())
         inAsciiView = pos.x() >= self._asciiPosX
         r, c = self.rowColForPos(pos, inAsciiView)
-        # not allow edit on hex end
-        if not inAsciiView and c % 3 == 2:
-            c -= 2
-        self._cursor.moveTo(r, c)
-        if pos.x() >= self._asciiPosX:
-            self._cursor.moveToAsciiView()
-        elif pos.x() >= self._hexPosX:
-            self._cursor.moveToHexView()
+        self._cursor.moveTo(r, c, inAsciiView)
 
         self._cursorTimer.start()
         self._invalidateSelection()
@@ -539,33 +567,6 @@ class HexEdit(QAbstractScrollArea):
         pos = self.mapToContents(event.pos())
         r, c = self.rowColForPos(pos, self._cursor.inAsciiView())
         self._cursor.selectTo(r, c)
-
-        if self._cursor.inHexView() and self._cursor.hasSelection():
-            beginCol = self._cursor.beginPos()
-            endCol = self._cursor.endPos()
-            # select one byte at least
-            if beginCol % 3 == 1:
-                beginCol -= 1
-            if endCol % 3 == 1 and (endCol + 1) <= self._charsPerLine:
-                endCol += 1
-            # do not select the space
-            if beginCol % 3 == 2 and (beginCol + 1) <= self._charsPerLine:
-                beginCol += 1
-            if endCol % 3 == 0 and endCol > 0:
-                endCol -= 1
-            if r == self._cursor.endLine():
-                self._cursor.moveTo(self._cursor.beginLine(), beginCol)
-                self._cursor.selectTo(r, endCol)
-            else:
-                self._cursor.moveTo(self._cursor.endLine(), endCol)
-                self._cursor.selectTo(r, beginCol)
-
-        if self._cursor.hasMultiLines():
-            # select at least one char
-            if c == 0 and self._cursor.endLine() == r:
-                self._cursor.selectTo(r, c + 2)
-            elif c == self._charsPerLine and self._cursor.beginLine() == r:
-                self._cursor.selectTo(r, c - 2)
 
         self._invalidateSelection()
         self.selectionChanged.emit()
