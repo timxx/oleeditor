@@ -244,7 +244,7 @@ class HexEdit(QAbstractScrollArea):
         self._adjustScrollbar()
 
     def paintEvent(self, event):
-        if not self._data:
+        if self._data is None:
             return
 
         painter = QPainter(self.viewport())
@@ -462,7 +462,9 @@ class HexEdit(QAbstractScrollArea):
         else:
             c = (pos.x() + halfChar - self._hexPosX) // self._charWidth
 
-        if r == self.lineCount() - 1:
+        if not self._data:
+            c = 0
+        elif r == self.lineCount() - 1:
             rest = len(self._data) % self._bytesPerLine
             if rest != 0:
                 c = min(c, rest * 3)
@@ -477,7 +479,7 @@ class HexEdit(QAbstractScrollArea):
 
         rows = self.lineCount()
         if r >= rows:
-            r = rows - 1
+            r = max(0, rows - 1)
 
         return r
 
@@ -501,7 +503,7 @@ class HexEdit(QAbstractScrollArea):
         self.viewport().update(rect)
 
     def mousePressEvent(self, event):
-        if not self._data:
+        if self._data is None:
             return
 
         if event.button() != Qt.LeftButton:
@@ -527,7 +529,7 @@ class HexEdit(QAbstractScrollArea):
         self.selectionChanged.emit()
 
     def mouseMoveEvent(self, event):
-        if not self._data:
+        if self._data is None:
             return
 
         if event.buttons() != Qt.LeftButton:
