@@ -171,7 +171,7 @@ class HexEdit(QAbstractScrollArea):
         if self.hasFocus():
             self._cursorTimer.start()
         else:
-            self._blink = True
+            self._blink = False
 
         self._adjustScrollbar()
         self.viewport().update()
