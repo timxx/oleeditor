@@ -7,7 +7,9 @@ from PySide2.QtWidgets import (
     QTabBar,
     QFileDialog,
     QMessageBox,
-    QApplication)
+    QApplication,
+    QVBoxLayout,
+    QWidget)
 from PySide2.QtGui import (
     QKeySequence,
     QIcon)
@@ -29,19 +31,27 @@ class OleWindow(QMainWindow):
         self.resize(dpiScaled(QSize(880, 510)))
 
         self._mdiArea = QMdiArea(self)
-        self._mdiArea.setViewMode(QMdiArea.TabbedView)
-        self._mdiArea.setTabsMovable(True)
-        self._mdiArea.setTabsClosable(True)
-        self.setCentralWidget(self._mdiArea)
+        self._tabBar = QTabBar(self)
+        self._tabBar.setExpanding(False)
+        self._tabBar.setTabsClosable(True)
 
-        # seems ugly
-        tabbar = self._mdiArea.findChild(QTabBar)
-        tabbar.setExpanding(False)
+        centralWidget = QWidget(self)
+        vbox = QVBoxLayout(centralWidget)
+        vbox.setMargin(0)
+        vbox.addWidget(self._tabBar)
+        vbox.addWidget(self._mdiArea)
+
+        self.setCentralWidget(centralWidget)
 
         self._initMenu()
 
         self._mdiArea.subWindowActivated.connect(
             self._onSubWindowActivated)
+
+        self._tabBar.currentChanged.connect(
+            self._onCurrentTabChanged)
+        self._tabBar.tabCloseRequested.connect(
+            self._onTabCloseRequested)
 
     def _initMenu(self):
         fileMenu = self.menuBar().addMenu(self.tr("&File"))
@@ -93,6 +103,27 @@ class OleWindow(QMainWindow):
         enabled = subWin.widget().editor.hasSelection() if subWin else False
         self._acCopy.setEnabled(enabled)
 
+        if not subWin:
+            return
+        index = self._mdiArea.subWindowList().index(subWin)
+        if self._tabBar.currentIndex() != index:
+            self._tabBar.setCurrentIndex(index)
+
+    def _onCurrentTabChanged(self, index):
+        if index < 0:
+            return
+
+        subWindows = self._mdiArea.subWindowList()
+        if index >= len(subWindows):
+            return
+
+        self._mdiArea.setActiveSubWindow(subWindows[index])
+
+    def _onTabCloseRequested(self, index):
+        subWindows = self._mdiArea.subWindowList()
+        subWindows[index].close()
+        self._tabBar.removeTab(index)
+
     def openFile(self, filePath):
         subWin = self.getSubWinByFilePath(filePath)
         if subWin:
@@ -113,7 +144,9 @@ class OleWindow(QMainWindow):
             return
 
         view = OleView(doc, self)
-        self._mdiArea.addSubWindow(view)
+        subWin = self._mdiArea.addSubWindow(view)
+        self._tabBar.addTab(subWin.windowIcon(), self.tabTitleFor(subWin))
+        subWin.showMaximized()
 
     def getSubWinByFilePath(self, filePath):
         subWindows = self._mdiArea.subWindowList()
@@ -131,3 +164,6 @@ class OleWindow(QMainWindow):
             return True
 
         return super().event(event)
+
+    def tabTitleFor(self, subWindow):
+        return subWindow.windowTitle()
