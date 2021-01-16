@@ -43,6 +43,6 @@ class AboutDialog(QDialog):
         about += "<center><a href=https://github.com/timxx/oleeditor>"
         about += self.tr("Visit project host")
         about += "</a></center><br/>"
-        about += "<center>Copyright © 2020 Weitian Leung</center>"
+        about += "<center>Copyright © 2020-2021 Weitian Leung</center>"
 
         self._textBrowser.setHtml(about)
