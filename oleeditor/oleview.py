@@ -12,7 +12,7 @@ from PySide2.QtCore import (
     QFileInfo,
     Qt)
 
-from .hexedit import HexEdit
+from pyhexedit import PyHexEdit
 from .oleevents import SelectionChangedEvent
 
 
@@ -31,7 +31,7 @@ class OleView(QWidget):
         self._splitter = QSplitter(self)
         layout.addWidget(self._splitter)
 
-        self._hexEdit = HexEdit(self)
+        self._hexEdit = PyHexEdit(self)
         self._oleTree = QTreeWidget(self)
         self._oleTree.setHeaderHidden(True)
 
